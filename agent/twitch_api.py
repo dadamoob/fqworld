@@ -16,7 +16,11 @@ _token: str | None = None
 _token_expiry = 0.0
 
 
-class TwitchKeysMissing(Exception):
+class TwitchConfigError(Exception):
+    """Problème de configuration Twitch, avec un message clair pour l'UI."""
+
+
+class TwitchKeysMissing(TwitchConfigError):
     """Levée quand les clés Twitch ne sont pas encore configurées dans l'UI."""
 
 
@@ -28,14 +32,31 @@ def _get_token() -> str:
         raise TwitchKeysMissing(
             "Clés Twitch manquantes : ajoutez-les dans l'onglet Configuration."
         )
+    if client_id == secret:
+        raise TwitchConfigError(
+            "Le Client ID et le Client Secret sont identiques : vous avez "
+            "probablement collé deux fois le Client ID. Sur la page de votre "
+            "application Twitch, cliquez « New Secret » pour générer le "
+            "Client Secret (une clé différente), puis collez-le dans l'onglet "
+            "Configuration."
+        )
     if _token and time.time() < _token_expiry - 60:
         return _token
+    # credentials dans le CORPS de la requête (jamais dans l'URL -> pas de
+    # secret dans les messages d'erreur ni les logs)
     resp = httpx.post(
         "https://id.twitch.tv/oauth2/token",
-        params={"client_id": client_id, "client_secret": secret,
-                "grant_type": "client_credentials"},
+        data={"client_id": client_id, "client_secret": secret,
+              "grant_type": "client_credentials"},
         timeout=15,
     )
+    if resp.status_code in (400, 401, 403):
+        raise TwitchConfigError(
+            "Twitch a refusé vos clés (Client ID ou Client Secret invalide). "
+            "Vérifiez-les dans l'onglet Configuration — au besoin, générez un "
+            "nouveau secret avec « New Secret » sur la page de votre "
+            "application Twitch (dev.twitch.tv/console/apps)."
+        )
     resp.raise_for_status()
     data = resp.json()
     _token = data["access_token"]

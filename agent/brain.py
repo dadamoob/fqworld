@@ -57,7 +57,7 @@ class Brain:
         streamers = [s["username"] for s in storage.list_streamers()]
         try:
             live = await asyncio.to_thread(twitch_api.get_live_streams, streamers)
-        except twitch_api.TwitchKeysMissing as exc:
+        except twitch_api.TwitchConfigError as exc:
             if streamers:
                 log.warning(str(exc))
             live = {}

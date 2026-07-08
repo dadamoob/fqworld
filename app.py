@@ -104,8 +104,8 @@ with tab_vod:
                 if not st.session_state["vods"]:
                     st.warning("Aucune rediffusion trouvée : le streamer doit activer "
                                "« Enregistrer les diffusions » dans ses paramètres Twitch.")
-            except twitch_api.TwitchKeysMissing as exc:
-                st.error(str(exc))
+            except twitch_api.TwitchConfigError as exc:
+                st.error(f"⚙️ {exc}")
             except Exception as exc:
                 st.error(f"Impossible de récupérer les rediffusions : {exc}")
 
@@ -263,6 +263,12 @@ with tab_config:
                                          value=config.get("twitch_client_id", ""))
         twitch_client_secret = st.text_input("Twitch Client Secret", type="password",
                                              value=config.get("twitch_client_secret", ""))
+        if twitch_client_id and twitch_client_id == twitch_client_secret:
+            st.error("⚠️ Le Client ID et le Client Secret sont **identiques** : "
+                     "vous avez collé deux fois le Client ID ! Le Client Secret est "
+                     "une clé **différente** : sur la page de votre application "
+                     "Twitch, cliquez **New Secret**, copiez la clé générée et "
+                     "collez-la dans le champ Client Secret.")
 
     # ------------------------------------------------------------ OPENAI
     with st.container(border=True):
