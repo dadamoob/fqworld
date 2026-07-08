@@ -52,13 +52,30 @@ if errorlevel 1 (
 )
 
 echo.
-echo  [3/3] C'est pret ! Ouverture de l'interface...
-echo.
-echo   Au quotidien : double-cliquez sur le raccourci "FQWorld"
-echo                  de votre Bureau (il demarre meme Docker si besoin)
-echo   Interface    : http://localhost:8501
-echo   Arreter      : raccourci "Arreter FQWorld" du Bureau
-echo.
-timeout /t 3 >nul
+echo  [3/3] Attente de l'interface (quelques secondes)...
+for /l %%i in (1,1,60) do (
+    curl -s -o nul http://localhost:8501 2>nul && goto ui_ready
+    timeout /t 2 >nul
+)
+echo      [i] L'interface met du temps a demarrer : ouvrez (ou actualisez)
+echo          http://localhost:8501 dans votre navigateur dans un instant.
+goto recap
+
+:ui_ready
+echo      C'est pret ! Ouverture dans votre navigateur...
 start http://localhost:8501
+
+:recap
+echo.
+echo  ============================================
+echo   FQWorld tourne en arriere-plan (c'est normal :
+echo   c'est un agent de surveillance). La partie
+echo   visible est la page web dans votre navigateur :
+echo.
+echo   Interface    : http://localhost:8501
+echo   Au quotidien : double-cliquez sur le raccourci
+echo                  "FQWorld" de votre Bureau
+echo   Arreter      : raccourci "Arreter FQWorld"
+echo  ============================================
+echo.
 pause

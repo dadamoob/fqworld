@@ -62,12 +62,25 @@ else
 fi
 
 echo ""
-echo " [3/3] C'est prêt !"
+echo " [3/3] Attente de l'interface (quelques secondes)…"
+ready=0
+for _ in $(seq 1 60); do
+    if curl -s -o /dev/null http://localhost:8501 2>/dev/null; then ready=1; break; fi
+    sleep 2
+done
 echo ""
-echo "  Au quotidien : double-cliquez sur le raccourci FQWorld du Bureau"
-echo "                 (il démarre même Docker si besoin)"
+echo " ============================================"
+echo "  FQWorld tourne en arrière-plan (c'est normal :"
+echo "  c'est un agent de surveillance). La partie"
+echo "  visible est la page web dans votre navigateur :"
+echo ""
 echo "  Interface    : http://localhost:8501"
+echo "  Au quotidien : double-cliquez sur le raccourci FQWorld du Bureau"
 echo "  Arrêter      : bash stop.sh"
+echo " ============================================"
 echo ""
+if [ "$ready" != "1" ]; then
+    echo " [i] L'interface met du temps à démarrer : actualisez la page dans un instant."
+fi
 if command -v open >/dev/null 2>&1; then open http://localhost:8501;
 elif command -v xdg-open >/dev/null 2>&1; then xdg-open http://localhost:8501; fi
