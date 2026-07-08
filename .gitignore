@@ -1,0 +1,6 @@
+# État runtime (clés API dans agent.db, vidéos) — ne jamais committer
+data/
+.venv/
+__pycache__/
+*.pyc
+.env
