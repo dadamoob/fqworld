@@ -9,21 +9,21 @@ Boucle toutes les 60 s :
 4. Sur pic de rires : extrait les 30 dernières secondes, recadre en 9:16,
    fait valider par l'IA (Whisper + LLM), range le clip dans la bibliothèque,
    et le publie sur TikTok si l'auto-post est activé dans l'UI.
+5. Traite aussi les analyses de REDIFFUSIONS (VOD) demandées dans l'UI,
+   une à la fois (agent/vod_hunter.py).
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import time
 
-import httpx
-
-from . import storage
+from . import storage, twitch_api
 from .chat_monitor import ChatMonitor
 from .clipper import RollingRecorder, capture_clip, extract_audio
 from .humor_ai import validate_clip
 from .tiktok_publisher import publish_to_tiktok
+from .vod_hunter import run_vod_job
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,59 +35,12 @@ log = logging.getLogger("brain")
 POLL_INTERVAL = 60  # secondes entre deux vérifications live/config
 
 
-class TwitchAPI:
-    """Client minimal Twitch Helix (statut live) avec token applicatif auto-renouvelé."""
-
-    def __init__(self):
-        self._token: str | None = None
-        self._token_expiry = 0.0
-
-    async def _ensure_token(self, client: httpx.AsyncClient) -> str | None:
-        client_id = storage.get_config("twitch_client_id")
-        secret = storage.get_config("twitch_client_secret")
-        if not client_id or not secret:
-            return None
-        if self._token and time.time() < self._token_expiry - 60:
-            return self._token
-        resp = await client.post(
-            "https://id.twitch.tv/oauth2/token",
-            params={"client_id": client_id, "client_secret": secret,
-                    "grant_type": "client_credentials"},
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        self._token = data["access_token"]
-        self._token_expiry = time.time() + data.get("expires_in", 3600)
-        return self._token
-
-    async def get_live_streams(self, usernames: list[str]) -> dict[str, str]:
-        """Retourne {username: titre_du_stream} pour ceux qui sont EN LIVE."""
-        if not usernames:
-            return {}
-        async with httpx.AsyncClient(timeout=15) as client:
-            token = await self._ensure_token(client)
-            if token is None:
-                log.warning("Clés Twitch absentes : renseignez-les dans l'onglet Configuration.")
-                return {}
-            resp = await client.get(
-                "https://api.twitch.tv/helix/streams",
-                params=[("user_login", u) for u in usernames[:100]],
-                headers={"Client-ID": storage.get_config("twitch_client_id"),
-                         "Authorization": f"Bearer {token}"},
-            )
-            if resp.status_code == 401:  # token révoqué -> retenter au prochain cycle
-                self._token = None
-                return {}
-            resp.raise_for_status()
-        return {s["user_login"].lower(): s.get("title", "") for s in resp.json().get("data", [])}
-
-
 class Brain:
     def __init__(self):
-        self.twitch = TwitchAPI()
         self.monitors: dict[str, ChatMonitor] = {}
         self.monitor_tasks: dict[str, asyncio.Task] = {}
         self.recorders: dict[str, RollingRecorder] = {}
+        self.vod_task: asyncio.Task | None = None
 
     # ------------------------------------------------------ cycle principal
 
@@ -102,7 +55,12 @@ class Brain:
 
     async def _tick(self) -> None:
         streamers = [s["username"] for s in storage.list_streamers()]
-        live = await self.twitch.get_live_streams(streamers)
+        try:
+            live = await asyncio.to_thread(twitch_api.get_live_streams, streamers)
+        except twitch_api.TwitchKeysMissing as exc:
+            if streamers:
+                log.warning(str(exc))
+            live = {}
 
         for username in streamers:
             is_live = username in live
@@ -121,6 +79,12 @@ class Brain:
         for recorder in self.recorders.values():
             if recorder.running:
                 recorder.prune()
+
+        # analyses de rediffusions demandées dans l'UI (une à la fois)
+        if self.vod_task is None or self.vod_task.done():
+            job = storage.claim_next_vod_job()
+            if job is not None:
+                self.vod_task = asyncio.create_task(run_vod_job(job))
 
     def _start_watching(self, username: str) -> None:
         if username not in self.recorders:

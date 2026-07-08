@@ -1,32 +1,50 @@
 # 🎬 FQWorld — Agent autonome Twitch → TikTok
 
 Un agent qui surveille vos streamers Twitch préférés, détecte automatiquement
-les moments drôles (pics de rires du chat + validation par IA), monte des clips
-au format TikTok (9:16) et les publie — le tout piloté depuis **une interface
-web ultra-simple**, sans jamais toucher au code.
+les moments drôles (en live via le chat, ou dans les **rediffusions** via
+l'analyse audio) avec validation par IA, monte des clips au format TikTok
+(9:16) et les publie — le tout piloté depuis **une interface web
+ultra-simple**, sans jamais toucher au code.
+
+## ⚡ Installation en 3 étapes (aucune compétence requise)
+
+1. **Installez [Docker Desktop](https://www.docker.com/products/docker-desktop/)**
+   (gratuit) et lancez-le une fois.
+2. **Téléchargez ce projet** : bouton vert **Code → Download ZIP** en haut de
+   cette page, puis décompressez le dossier.
+3. **Double-cliquez sur `install.bat`** (Windows) ou lancez `bash install.sh`
+   (Mac/Linux). L'interface s'ouvre toute seule sur http://localhost:8501. 🎉
+
+Ensuite, l'onglet **⚙️ Configuration** de l'interface vous guide pas à pas
+(liens directs inclus) pour récupérer vos clés Twitch/OpenAI/TikTok.
+Pour tout arrêter : `stop.bat` / `bash stop.sh` (clips et config conservés).
 
 ## 🖥️ L'interface (Streamlit)
 
 | Onglet | Ce qu'on y fait |
 |---|---|
 | 📡 **Dashboard** | Voir les streamers suivis (🔴 En live / ⚫ Hors ligne), en ajouter un avec juste son pseudo |
-| 🎞️ **Bibliothèque de Clips** | Galerie des clips générés, statut (Prêt / Posté sur TikTok / Échec / Rejeté par l'IA), bouton de publication manuelle |
-| ⚙️ **Configuration** | Clés API (Twitch, OpenAI, TikTok) et réglages de sensibilité, sans ouvrir un seul fichier |
+| 📼 **Rediffusions** | Choisir une VOD d'un streamer : l'IA l'analyse et en tire 1 à 5 clips, sans attendre un live |
+| 🎞️ **Bibliothèque de Clips** | Galerie des clips générés, statut (Prêt / Posté sur TikTok / Échec / Rejeté par l'IA), publication manuelle ou téléchargement |
+| ⚙️ **Configuration** | Guides pas à pas avec liens directs pour chaque clé API (Twitch, OpenAI, TikTok) + réglages de sensibilité |
 
 ## 🧠 Le moteur (sous le capot)
 
 ```
-Chat Twitch (IRC anonyme)          Flux vidéo (streamlink)
-        │                                  │
-   Pic de "LUL/MDR/KEKW" ?          Buffer circulaire 3 min
-        │  oui                             │
-        └──────► Extraction des 30 dernières secondes (FFmpeg)
-                        │
-                 Whisper (transcription) + LLM (verdict "drôle ?")
-                        │  validé
-                 Recadrage 9:16 → 1080x1920 (FFmpeg)
-                        │
-                 Bibliothèque de clips ──► TikTok (auto ou manuel)
+   MODE LIVE                              MODE REDIFFUSION (VOD)
+Chat Twitch (IRC anonyme)              Piste audio de la VOD (streamlink)
+        │                                        │
+ Pic de "LUL/MDR/KEKW" ?               Pics de volume (cris, fous rires)
+        │  oui                                   │
+Extraction des 30 dernières s          Téléchargement des 30 s concernées
+(buffer circulaire streamlink)         (seek HLS, pas toute la vidéo)
+        └──────────────┬─────────────────────────┘
+                       │
+        Whisper (transcription) + LLM (verdict "drôle ?")
+                       │  validé
+        Recadrage 9:16 → 1080x1920 (FFmpeg)
+                       │
+        Bibliothèque de clips ──► TikTok (auto ou manuel)
 ```
 
 L'UI et le Cerveau sont **deux processus indépendants** qui communiquent via
@@ -72,9 +90,13 @@ en « Prêt » dans la bibliothèque.
 ```
 fqworld/
 ├── app.py                    # 🖥️ Interface web Streamlit (le SEUL point de contact utilisateur)
+├── install.bat / install.sh  # ⚡ Installation en un double-clic (Windows / Mac-Linux)
+├── stop.bat / stop.sh        # ⏹️ Arrêt propre
 ├── agent/
 │   ├── brain.py              # 🧠 Orchestrateur : boucle de surveillance + pipeline des clips
 │   ├── chat_monitor.py       # 👂 Lecture du chat Twitch (IRC) + détection des pics de rires
+│   ├── vod_hunter.py         # 📼 Analyse des rediffusions : pics audio + clips
+│   ├── twitch_api.py         # 🔌 Client Twitch Helix partagé (live, VOD)
 │   ├── clipper.py            # ✂️ Buffer vidéo streamlink + montage FFmpeg 9:16
 │   ├── humor_ai.py           # 🤖 Whisper (transcription) + LLM (verdict humour)
 │   ├── tiktok_publisher.py   # 🚀 Publication via la Content Posting API TikTok
