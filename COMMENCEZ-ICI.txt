@@ -1,0 +1,40 @@
+============================================================
+  FQWorld — Agent Twitch vers TikTok
+  DÉMARRAGE EN 2 MINUTES
+============================================================
+
+ÉTAPE 1 — Installez Docker Desktop (une seule fois, gratuit)
+   https://www.docker.com/products/docker-desktop/
+   Installez-le, redémarrez l'ordinateur si demandé,
+   et lancez-le une fois (icône baleine).
+
+ÉTAPE 2 — Lancez l'installation (une seule fois)
+   * Windows    : double-cliquez sur  install.bat
+   * Mac/Linux  : ouvrez un terminal dans ce dossier
+                  et tapez :  bash install.sh
+
+   L'installation crée automatiquement un raccourci
+   « FQWorld » sur votre BUREAU et ouvre l'interface
+   dans votre navigateur.
+
+ÉTAPE 3 — Au quotidien
+   Double-cliquez simplement sur le raccourci « FQWorld »
+   de votre Bureau : il démarre tout (même Docker) et
+   ouvre l'interface sur http://localhost:8501
+
+   Pour arrêter : raccourci « Arrêter FQWorld » (Windows)
+   ou stop.sh (Mac/Linux). Vos clips et votre configuration
+   sont toujours conservés (dossier data/).
+
+------------------------------------------------------------
+PREMIÈRE UTILISATION, dans l'interface :
+   1. Onglet « Configuration » : suivez le guide pas à pas
+      (tous les liens pour obtenir les clés y sont).
+   2. Onglet « Dashboard » : ajoutez un streamer, ou
+      onglet « Rediffusions » : analysez une VOD sans
+      attendre un live.
+   3. Vos clips arrivent dans « Bibliothèque de Clips ».
+
+Un problème ? Ouvrez une issue sur :
+   https://github.com/dadamoob/fqworld/issues
+============================================================

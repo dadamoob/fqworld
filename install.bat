@@ -41,10 +41,23 @@ if errorlevel 1 (
 )
 
 echo.
-echo  [2/2] C'est pret ! Ouverture de l'interface...
+echo  [2/3] Creation des raccourcis sur le Bureau...
+set "HERE=%~dp0"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws=New-Object -ComObject WScript.Shell; $d=[Environment]::GetFolderPath('Desktop'); $s=$ws.CreateShortcut((Join-Path $d 'FQWorld.lnk')); $s.TargetPath='%HERE%FQWorld.bat'; $s.WorkingDirectory='%HERE%'; $s.Description='Lancer FQWorld (Twitch vers TikTok)'; $s.Save(); $s2=$ws.CreateShortcut((Join-Path $d 'Arreter FQWorld.lnk')); $s2.TargetPath='%HERE%stop.bat'; $s2.WorkingDirectory='%HERE%'; $s2.Description='Arreter FQWorld'; $s2.Save()" >nul 2>nul
+if errorlevel 1 (
+    echo      [i] Impossible de creer les raccourcis - vous pourrez
+    echo          toujours double-cliquer sur FQWorld.bat dans ce dossier.
+) else (
+    echo      Raccourcis "FQWorld" et "Arreter FQWorld" crees sur le Bureau !
+)
+
 echo.
-echo   Interface : http://localhost:8501
-echo   Arreter   : double-cliquez sur stop.bat
+echo  [3/3] C'est pret ! Ouverture de l'interface...
+echo.
+echo   Au quotidien : double-cliquez sur le raccourci "FQWorld"
+echo                  de votre Bureau (il demarre meme Docker si besoin)
+echo   Interface    : http://localhost:8501
+echo   Arreter      : raccourci "Arreter FQWorld" du Bureau
 echo.
 timeout /t 3 >nul
 start http://localhost:8501

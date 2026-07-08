@@ -11,13 +11,17 @@ ultra-simple**, sans jamais toucher au code.
 1. **Installez [Docker Desktop](https://www.docker.com/products/docker-desktop/)**
    (gratuit) et lancez-le une fois.
 2. **Téléchargez ce projet** : bouton vert **Code → Download ZIP** en haut de
-   cette page, puis décompressez le dossier.
+   cette page, puis décompressez le dossier (lisez `COMMENCEZ-ICI.txt`).
 3. **Double-cliquez sur `install.bat`** (Windows) ou lancez `bash install.sh`
-   (Mac/Linux). L'interface s'ouvre toute seule sur http://localhost:8501. 🎉
+   (Mac/Linux). L'installation **crée un raccourci « FQWorld » sur votre
+   Bureau** et ouvre l'interface sur http://localhost:8501. 🎉
+
+**Au quotidien : un double-clic sur le raccourci Bureau suffit** — il démarre
+même Docker s'il est fermé, puis ouvre l'interface. Pour arrêter : raccourci
+« Arrêter FQWorld » (Windows) ou `bash stop.sh` (clips et config conservés).
 
 Ensuite, l'onglet **⚙️ Configuration** de l'interface vous guide pas à pas
 (liens directs inclus) pour récupérer vos clés Twitch/OpenAI/TikTok.
-Pour tout arrêter : `stop.bat` / `bash stop.sh` (clips et config conservés).
 
 ## 🖥️ L'interface (Streamlit)
 
@@ -89,8 +93,10 @@ en « Prêt » dans la bibliothèque.
 
 ```
 fqworld/
+├── COMMENCEZ-ICI.txt         # 📖 Le premier fichier à lire après avoir dézippé
 ├── app.py                    # 🖥️ Interface web Streamlit (le SEUL point de contact utilisateur)
-├── install.bat / install.sh  # ⚡ Installation en un double-clic (Windows / Mac-Linux)
+├── install.bat / install.sh  # ⚡ Installation en un double-clic + raccourcis Bureau
+├── FQWorld.bat / FQWorld.sh  # ▶️ Lanceur quotidien (visé par le raccourci Bureau)
 ├── stop.bat / stop.sh        # ⏹️ Arrêt propre
 ├── agent/
 │   ├── brain.py              # 🧠 Orchestrateur : boucle de surveillance + pipeline des clips
