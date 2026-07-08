@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from . import storage, twitch_api
 from .chat_monitor import ChatMonitor
@@ -54,6 +55,9 @@ class Brain:
             await asyncio.sleep(POLL_INTERVAL)
 
     async def _tick(self) -> None:
+        # battement de cœur : permet à l'UI d'afficher « Moteur actif »
+        storage.set_config("brain_heartbeat", str(time.time()))
+
         streamers = [s["username"] for s in storage.list_streamers()]
         try:
             live = await asyncio.to_thread(twitch_api.get_live_streams, streamers)
