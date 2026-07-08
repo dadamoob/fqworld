@@ -31,10 +31,18 @@ for _ in $(seq 1 60); do
     sleep 2
 done
 if [ "$ready" = "1" ]; then
-    echo " C'est prêt ! Ouverture dans votre navigateur…"
+    echo " C'est prêt ! Ouverture de FQWorld…"
 else
     echo " [!] L'interface met du temps à démarrer — ouvrez (ou actualisez)"
     echo "     cette page dans votre navigateur : http://localhost:8501"
 fi
-if command -v open >/dev/null 2>&1; then open http://localhost:8501;
-elif command -v xdg-open >/dev/null 2>&1; then xdg-open http://localhost:8501; fi
+# Fenêtre applicative dédiée (comme un vrai logiciel) si Chrome/Chromium présent
+URL=http://localhost:8501
+if [ "$(uname)" = "Darwin" ] && [ -d "/Applications/Google Chrome.app" ]; then
+    open -na "Google Chrome" --args --app=$URL --window-size=1320,920
+elif command -v google-chrome >/dev/null 2>&1; then
+    google-chrome --app=$URL --window-size=1320,920 >/dev/null 2>&1 &
+elif command -v chromium >/dev/null 2>&1; then
+    chromium --app=$URL --window-size=1320,920 >/dev/null 2>&1 &
+elif command -v open >/dev/null 2>&1; then open $URL;
+elif command -v xdg-open >/dev/null 2>&1; then xdg-open $URL; fi

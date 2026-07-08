@@ -15,7 +15,18 @@ import streamlit as st
 from agent import storage, twitch_api
 from agent.tiktok_publisher import publish_to_tiktok
 
-st.set_page_config(page_title="FQWorld — Twitch → TikTok", page_icon="🎬", layout="wide")
+st.set_page_config(page_title="FQWorld", page_icon="🎬", layout="wide")
+
+# Habillage « logiciel » : on masque les éléments techniques de Streamlit
+st.markdown("""
+<style>
+  #MainMenu, footer,
+  [data-testid="stAppDeployButton"],
+  [data-testid="stToolbar"],
+  [data-testid="stDecoration"] { visibility: hidden; height: 0; }
+  .block-container { padding-top: 2.2rem; }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("🎬 FQWorld — Agent Twitch → TikTok")
 st.caption("Détection automatique des moments drôles (en live OU dans les rediffusions), "

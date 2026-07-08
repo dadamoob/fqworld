@@ -37,7 +37,17 @@ pause
 exit /b 1
 
 :open
-echo  C'est pret ! Ouverture dans votre navigateur...
-start http://localhost:8501
+echo  C'est pret ! Ouverture de FQWorld...
+REM Fenetre applicative dediee (comme un vrai logiciel) via Edge ou Chrome
+set "APPBROWSER="
+if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" set "APPBROWSER=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
+if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" set "APPBROWSER=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
+if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "APPBROWSER=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
+if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" set "APPBROWSER=%LocalAppData%\Google\Chrome\Application\chrome.exe"
+if defined APPBROWSER (
+    start "" "%APPBROWSER%" --app=http://localhost:8501 --window-size=1320,920
+) else (
+    start http://localhost:8501
+)
 timeout /t 2 >nul
 exit /b 0

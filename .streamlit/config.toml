@@ -1,0 +1,16 @@
+# Habillage « logiciel » de FQWorld — thème sombre aux couleurs Twitch
+[theme]
+base = "dark"
+primaryColor = "#9146FF"
+backgroundColor = "#0e0e10"
+secondaryBackgroundColor = "#1f1f23"
+textColor = "#efeff1"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+headless = true
