@@ -27,6 +27,12 @@ CLIP_POSTED = "Posté sur TikTok"
 CLIP_FAILED = "Échec"
 CLIP_REJECTED = "Rejeté par l'IA"
 
+# Statuts d'une analyse de rediffusion (VOD)
+JOB_PENDING = "En attente"
+JOB_RUNNING = "Analyse en cours"
+JOB_DONE = "Terminé"
+JOB_FAILED = "Échec"
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS streamers (
     username     TEXT PRIMARY KEY,
@@ -49,6 +55,20 @@ CREATE TABLE IF NOT EXISTS clips (
 CREATE TABLE IF NOT EXISTS config (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS vod_jobs (
+    id           TEXT PRIMARY KEY,
+    streamer     TEXT NOT NULL,
+    vod_id       TEXT NOT NULL,
+    vod_url      TEXT NOT NULL,
+    vod_title    TEXT DEFAULT '',
+    vod_duration REAL DEFAULT 0,
+    clips_wanted INTEGER DEFAULT 3,
+    status       TEXT NOT NULL,
+    progress     REAL DEFAULT 0,
+    clips_found  INTEGER DEFAULT 0,
+    error        TEXT DEFAULT '',
+    created_at   REAL NOT NULL
 );
 """
 
@@ -147,6 +167,56 @@ def delete_clip(clip_id: str) -> None:
         con.execute("DELETE FROM clips WHERE id = ?", (clip_id,))
     if row and row["path"]:
         Path(row["path"]).unlink(missing_ok=True)
+
+
+# ---------------------------------------------------- rediffusions (VOD)
+
+def add_vod_job(streamer: str, vod_id: str, vod_url: str, vod_title: str,
+                vod_duration: float, clips_wanted: int) -> str:
+    job_id = uuid.uuid4().hex[:12]
+    with _db() as con:
+        con.execute(
+            "INSERT INTO vod_jobs (id, streamer, vod_id, vod_url, vod_title, vod_duration,"
+            " clips_wanted, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (job_id, streamer, vod_id, vod_url, vod_title, vod_duration,
+             clips_wanted, JOB_PENDING, time.time()),
+        )
+    return job_id
+
+
+def list_vod_jobs() -> list[dict]:
+    with _db() as con:
+        rows = con.execute("SELECT * FROM vod_jobs ORDER BY created_at DESC").fetchall()
+    return [dict(r) for r in rows]
+
+
+def claim_next_vod_job() -> dict | None:
+    """Prend atomiquement le prochain job en attente (le passe en 'Analyse en cours')."""
+    with _db() as con:
+        row = con.execute(
+            "SELECT * FROM vod_jobs WHERE status = ? ORDER BY created_at LIMIT 1",
+            (JOB_PENDING,),
+        ).fetchone()
+        if row is None:
+            return None
+        con.execute("UPDATE vod_jobs SET status = ? WHERE id = ?", (JOB_RUNNING, row["id"]))
+    return dict(row)
+
+
+def update_vod_job(job_id: str, **fields) -> None:
+    allowed = {"status", "progress", "clips_found", "error"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return
+    assignments = ", ".join(f"{k} = ?" for k in updates)
+    with _db() as con:
+        con.execute(f"UPDATE vod_jobs SET {assignments} WHERE id = ?",
+                    (*updates.values(), job_id))
+
+
+def delete_vod_job(job_id: str) -> None:
+    with _db() as con:
+        con.execute("DELETE FROM vod_jobs WHERE id = ?", (job_id,))
 
 
 # ------------------------------------------------------------------- config
