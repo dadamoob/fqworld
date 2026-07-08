@@ -1,0 +1,21 @@
+services:
+  # Interface web (Streamlit) — http://localhost:8501
+  ui:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data     # base SQLite + clips partagés avec le cerveau
+    environment:
+      - FQ_DATA_DIR=/app/data
+    restart: unless-stopped
+
+  # Le Cerveau — surveillance Twitch, IA, montage, publication
+  brain:
+    build: .
+    command: python -m agent.brain
+    volumes:
+      - ./data:/app/data
+    environment:
+      - FQ_DATA_DIR=/app/data
+    restart: unless-stopped
