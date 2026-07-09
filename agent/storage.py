@@ -94,9 +94,26 @@ CONFIG_KEYS = {
 }
 
 
+def _ensure_dir(path: Path) -> None:
+    """Crée le dossier, avec un message clair si un fichier occupe déjà la place.
+
+    Cas connu : sous Docker Desktop Windows, si le dossier « data » n'existe pas
+    au moment du montage, Docker le crée parfois en tant que FICHIER vide, ce qui
+    faisait planter l'agent avec une erreur illisible (FileExistsError).
+    """
+    if path.exists() and not path.is_dir():
+        raise RuntimeError(
+            f"« {path} » devrait être un dossier mais un fichier occupe sa place. "
+            "C'est généralement dû à un montage Docker mal initialisé sous Windows. "
+            "Solution : arrêtez FQWorld (« Arrêter FQWorld »), supprimez l'élément "
+            "« data » situé à côté de l'application, puis relancez FQWorld."
+        )
+    path.mkdir(parents=True, exist_ok=True)
+
+
 def _init_db() -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    CLIPS_DIR.mkdir(parents=True, exist_ok=True)
+    _ensure_dir(DATA_DIR)
+    _ensure_dir(CLIPS_DIR)
     with sqlite3.connect(DB_PATH) as con:
         con.execute("PRAGMA journal_mode=WAL;")
         con.executescript(_SCHEMA)

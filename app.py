@@ -107,7 +107,12 @@ if _latest and _latest != VERSION:
             "(Windows) ou lancez `bash update.sh` (Mac/Linux) — vos clips et "
             "votre configuration sont conservés.")
 
-config = storage.get_all_config()
+try:
+    config = storage.get_all_config()
+except RuntimeError as exc:
+    st.error(f"⚠️ {exc}")
+    st.stop()
+
 twitch_ok = bool(config.get("twitch_client_id")) and bool(config.get("twitch_client_secret"))
 openai_ok = bool(config.get("openai_api_key"))
 tiktok_ok = bool(config.get("tiktok_access_token"))

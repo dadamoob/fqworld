@@ -18,6 +18,7 @@ rm -rf fqworld-main fqworld_new.zip
 chmod +x FQWorld.sh install.sh stop.sh update.sh 2>/dev/null || true
 
 echo " Reconstruction et redémarrage de l'agent…"
+mkdir -p data/clips   # dossier data créé avant le montage Docker
 if docker info >/dev/null 2>&1; then
     if docker compose up --build -d; then
         echo ""

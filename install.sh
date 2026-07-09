@@ -28,6 +28,7 @@ fi
 echo " [1/2] Construction et démarrage de l'agent…"
 echo "       (le premier lancement prend 2 à 5 minutes)"
 echo ""
+mkdir -p data/clips   # dossier data créé avant le montage Docker
 docker compose up --build -d
 
 echo ""

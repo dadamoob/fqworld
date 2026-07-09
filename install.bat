@@ -32,6 +32,9 @@ if errorlevel 1 (
 echo  [1/2] Construction et demarrage de l'agent...
 echo        (le premier lancement prend 2 a 5 minutes)
 echo.
+REM Cree le dossier data AVANT le montage Docker : evite que Docker Desktop
+REM le cree par erreur en tant que fichier (plantage FileExistsError).
+if not exist "%~dp0data\clips" mkdir "%~dp0data\clips"
 docker compose up --build -d
 if errorlevel 1 (
     echo  [!] Une erreur est survenue. Copiez le message
