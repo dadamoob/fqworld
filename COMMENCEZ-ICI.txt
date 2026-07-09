@@ -26,6 +26,12 @@
    ou stop.sh (Mac/Linux). Vos clips et votre configuration
    sont toujours conservés (dossier data/).
 
+MISE À JOUR
+   Quand l'interface affiche « Nouvelle version disponible » :
+   * Windows    : double-cliquez sur  update.bat
+   * Mac/Linux  : bash update.sh
+   Vos clips et votre configuration sont conservés.
+
 ------------------------------------------------------------
 PREMIÈRE UTILISATION, dans l'interface :
    1. Onglet « Configuration » : suivez le guide pas à pas

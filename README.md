@@ -102,6 +102,7 @@ fqworld/
 ├── app.py                    # 🖥️ Interface web Streamlit (le SEUL point de contact utilisateur)
 ├── install.bat / install.sh  # ⚡ Installation en un double-clic + raccourcis Bureau
 ├── FQWorld.bat / FQWorld.sh  # ▶️ Lanceur quotidien (visé par le raccourci Bureau)
+├── update.bat / update.sh    # 🔄 Mise à jour en un clic (data/ conservé)
 ├── stop.bat / stop.sh        # ⏹️ Arrêt propre
 ├── agent/
 │   ├── brain.py              # 🧠 Orchestrateur : boucle de surveillance + pipeline des clips
