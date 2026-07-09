@@ -100,6 +100,7 @@ class RollingRecorder:
 
 def crop_to_tiktok(source: Path, channel: str) -> Path | None:
     """Recadre la vidéo en 9:16 (1080x1920) centré — format TikTok."""
+    storage.CLIPS_DIR.mkdir(parents=True, exist_ok=True)
     out = storage.CLIPS_DIR / f"{channel}_{time.strftime('%Y%m%d_%H%M%S')}.mp4"
     # crop central 9:16 puis mise à l'échelle 1080x1920
     vf = "crop=ih*9/16:ih:(iw-ih*9/16)/2:0,scale=1080:1920,setsar=1"

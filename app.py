@@ -271,6 +271,10 @@ with tab_library:
             storage.CLIP_FAILED: "🔴 Échec",
             storage.CLIP_REJECTED: "🟡 Rejeté par l'IA",
         }
+        # Pagination : 12 clips affichés, le reste sur demande
+        if len(clips) > 12 and not st.toggle(
+                f"Afficher les {len(clips)} clips (sinon les 12 plus récents)"):
+            clips = clips[:12]
         # Galerie : 3 clips par ligne
         for row_start in range(0, len(clips), 3):
             cols = st.columns(3)
