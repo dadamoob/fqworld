@@ -7,6 +7,7 @@ le moteur technique (agent/brain.py) tourne en arrière-plan et
 communique via la base SQLite partagée (agent/storage.py).
 """
 
+import sys
 import time
 from pathlib import Path
 
@@ -102,10 +103,16 @@ engine_status()
 
 _latest = latest_version()
 if _latest and _latest != VERSION:
-    st.info(f"🔄 **Nouvelle version {_latest} disponible** (vous êtes en v{VERSION}). "
-            "Pour mettre à jour en un clic : double-cliquez sur `update.bat` "
-            "(Windows) ou lancez `bash update.sh` (Mac/Linux) — vos clips et "
-            "votre configuration sont conservés.")
+    if getattr(sys, "frozen", False):  # application autonome (.exe)
+        st.info(f"🔄 **Nouvelle version {_latest} disponible** (vous êtes en v{VERSION}). "
+                "Téléchargez le nouveau FQWorld ici : "
+                "https://github.com/dadamoob/fqworld/releases/latest — remplacez "
+                "l'ancien fichier, votre dossier `data` (clips, clés) est conservé.")
+    else:
+        st.info(f"🔄 **Nouvelle version {_latest} disponible** (vous êtes en v{VERSION}). "
+                "Pour mettre à jour en un clic : double-cliquez sur `update.bat` "
+                "(Windows) ou lancez `bash update.sh` (Mac/Linux) — vos clips et "
+                "votre configuration sont conservés.")
 
 try:
     config = storage.get_all_config()

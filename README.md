@@ -6,22 +6,34 @@ l'analyse audio) avec validation par IA, monte des clips au format TikTok
 (9:16) et les publie — le tout piloté depuis **une interface web
 ultra-simple**, sans jamais toucher au code.
 
-## ⚡ Installation en 3 étapes (aucune compétence requise)
+## ⚡ Le logiciel : un seul fichier, zéro installation
 
-1. **Installez [Docker Desktop](https://www.docker.com/products/docker-desktop/)**
-   (gratuit) et lancez-le une fois.
-2. **Téléchargez ce projet** : bouton vert **Code → Download ZIP** en haut de
-   cette page, puis décompressez le dossier (lisez `COMMENCEZ-ICI.txt`).
-3. **Double-cliquez sur `install.bat`** (Windows) ou lancez `bash install.sh`
-   (Mac/Linux). L'installation **crée un raccourci « FQWorld » sur votre
-   Bureau** et ouvre l'interface sur http://localhost:8501. 🎉
+### 👉 [Télécharger FQWorld.exe (dernière version)](https://github.com/dadamoob/fqworld/releases/latest)
 
-**Au quotidien : un double-clic sur le raccourci Bureau suffit** — il démarre
-même Docker s'il est fermé, puis ouvre l'interface. Pour arrêter : raccourci
-« Arrêter FQWorld » (Windows) ou `bash stop.sh` (clips et config conservés).
+1. Téléchargez **`FQWorld.exe`** depuis le lien ci-dessus (section *Assets*).
+2. **Double-cliquez dessus.** C'est tout : l'application s'ouvre dans sa
+   propre fenêtre, une icône FQWorld apparaît près de l'horloge
+   (clic droit → Ouvrir / Quitter). 🎉
+3. Vos clips et votre configuration vivent dans un dossier `data` créé à
+   côté du fichier — pour mettre à jour, remplacez simplement l'exe.
+
+> Au premier lancement, Windows SmartScreen peut demander confirmation :
+> « Informations complémentaires » → « Exécuter quand même ».
+> Sous Linux : binaire `FQWorld-linux` (FFmpeg requis).
 
 Ensuite, l'onglet **⚙️ Configuration** de l'interface vous guide pas à pas
 (liens directs inclus) pour récupérer vos clés Twitch/OpenAI/TikTok.
+
+<details>
+<summary>🐳 Alternative Docker (Mac, serveurs VPS/AWS, utilisateurs avancés)</summary>
+
+1. Installez [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+   et lancez-le une fois.
+2. Téléchargez ce projet : **Code → Download ZIP**, décompressez.
+3. Double-cliquez sur `install.bat` (Windows) ou `bash install.sh` (Mac/Linux) :
+   raccourcis Bureau créés, interface ouverte sur http://localhost:8501.
+   Mise à jour : `update.bat` / `bash update.sh`. Arrêt : `stop.bat` / `stop.sh`.
+</details>
 
 ## 🖥️ L'interface (Streamlit)
 

@@ -1,0 +1,143 @@
+name: Build FQWorld (logiciel autonome)
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publier une release avec les binaires"
+        type: boolean
+        default: false
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: FQWorld.exe
+          - os: ubuntu-latest
+            artifact: FQWorld-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Dépendances
+        run: pip install -r requirements.txt pyinstaller pystray pillow
+
+      - name: Icône
+        run: python scripts/make_icon.py
+
+      - name: FFmpeg embarqué (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffdir
+          Copy-Item (Get-ChildItem ffdir -Recurse -Filter ffmpeg.exe | Select-Object -First 1).FullName ffmpeg.exe
+
+      - name: Build FQWorld.exe (Windows, fenêtré, tout embarqué)
+        if: runner.os == 'Windows'
+        run: >
+          pyinstaller --noconfirm --onefile --windowed --name FQWorld
+          --icon icon.ico
+          --add-data "app.py;."
+          --add-data "agent;agent"
+          --add-data "VERSION;."
+          --add-data ".streamlit;.streamlit"
+          --add-binary "ffmpeg.exe;."
+          --collect-all streamlit --copy-metadata streamlit
+          --collect-all streamlink --copy-metadata streamlink
+          --hidden-import agent.brain --hidden-import agent.storage
+          desktop.py
+
+      - name: Build FQWorld-linux
+        if: runner.os == 'Linux'
+        run: >
+          pyinstaller --noconfirm --onefile --name FQWorld-linux
+          --add-data "app.py:."
+          --add-data "agent:agent"
+          --add-data "VERSION:."
+          --add-data ".streamlit:.streamlit"
+          --collect-all streamlit --copy-metadata streamlit
+          --collect-all streamlink --copy-metadata streamlink
+          --hidden-import agent.brain --hidden-import agent.storage
+          desktop.py
+
+      - name: Test de fumée (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          FQ_NO_BROWSER=1 FQ_PORT=8641 ./dist/FQWorld-linux &
+          APP_PID=$!
+          ok=0
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8641/ >/dev/null && ok=1 && break
+            sleep 2
+          done
+          kill $APP_PID || true
+          test "$ok" = "1"
+
+      - name: Test de fumée (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:FQ_NO_BROWSER = "1"
+          $env:FQ_PORT = "8641"
+          $p = Start-Process -FilePath "dist\FQWorld.exe" -PassThru
+          $ok = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            try {
+              Invoke-WebRequest -Uri "http://127.0.0.1:8641/" -UseBasicParsing -TimeoutSec 2 | Out-Null
+              $ok = $true; break
+            } catch { Start-Sleep 2 }
+          }
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          if (-not $ok) { Get-Content "dist\fqworld.log" -ErrorAction SilentlyContinue; exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
+
+  release:
+    needs: build
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: version
+        run: echo "v=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.v }}
+          name: FQWorld v${{ steps.version.outputs.v }}
+          files: dist/*
+          body: |
+            ## 🎬 FQWorld — le logiciel autonome
+
+            **Windows : téléchargez `FQWorld.exe` ci-dessous, double-cliquez, c'est tout.**
+            Pas de Docker, pas d'installation : l'application s'ouvre dans sa propre
+            fenêtre, avec une icône près de l'horloge (Ouvrir / Quitter).
+            Vos données restent dans un dossier `data` créé à côté du fichier.
+
+            - Au premier lancement, Windows SmartScreen peut demander confirmation :
+              cliquez « Informations complémentaires » puis « Exécuter quand même ».
+            - Linux : `FQWorld-linux` (FFmpeg requis : `sudo apt install ffmpeg`).
+            - Mac/serveurs : utilisez le mode Docker du dépôt (README).

@@ -7,3 +7,11 @@ __pycache__/
 .test-ca.crt
 Dockerfile.test
 docker-compose.test.yml
+# artefacts de build du logiciel autonome
+dist/
+build/
+*.spec
+icon.ico
+ffmpeg.exe
+ffmpeg.zip
+fqworld.log
