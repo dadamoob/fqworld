@@ -20,7 +20,7 @@ import uuid
 from pathlib import Path
 
 from . import storage
-from .clipper import crop_to_tiktok, extract_audio
+from .clipper import burn_subtitles, crop_to_tiktok, extract_audio
 from .humor_ai import validate_clip
 
 log = logging.getLogger("vod_hunter")
@@ -125,6 +125,8 @@ async def run_vod_job(job: dict) -> None:
     """Pipeline complet d'une analyse de rediffusion (appelé par le Cerveau)."""
     job_id = job["id"]
     log.info("[%s] 📼 analyse de la rediffusion « %s »", job["streamer"], job["vod_title"])
+    storage.add_event("vod", f"Analyse de la rediffusion de {job['streamer']} démarrée 📼",
+                      job["streamer"])
     try:
         peaks = await asyncio.to_thread(
             scan_audio_peaks, job["vod_url"], int(job["clips_wanted"]),
@@ -156,6 +158,9 @@ async def run_vod_job(job: dict) -> None:
                         "pic_audio_db": round(peak_db, 1)})
 
             is_funny = bool(verdict.get("funny"))
+            if is_funny and verdict.get("segments") \
+                    and storage.get_config("subtitles") == "true":
+                clip = await asyncio.to_thread(burn_subtitles, clip, verdict["segments"])
             storage.add_clip(
                 streamer=job["streamer"], path=str(clip),
                 title=verdict.get("title") or f"Moment fort de {job['streamer']} 😂",
@@ -172,6 +177,10 @@ async def run_vod_job(job: dict) -> None:
         storage.update_vod_job(job_id, status=storage.JOB_DONE, progress=1.0,
                                clips_found=found)
         log.info("[%s] 📼 analyse terminée : %d clip(s) validé(s)", job["streamer"], found)
+        storage.add_event("vod", f"Analyse de {job['streamer']} terminée : "
+                                 f"{found} clip(s) validé(s) ✅", job["streamer"])
     except Exception as exc:
         log.exception("[%s] analyse de rediffusion échouée", job["streamer"])
         storage.update_vod_job(job_id, status=storage.JOB_FAILED, error=str(exc))
+        storage.add_event("erreur", f"Analyse de la rediffusion de {job['streamer']} "
+                                    f"échouée 🔴", job["streamer"])

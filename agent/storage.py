@@ -56,6 +56,13 @@ CREATE TABLE IF NOT EXISTS config (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS events (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts       REAL NOT NULL,
+    streamer TEXT DEFAULT '',
+    kind     TEXT NOT NULL,
+    message  TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS vod_jobs (
     id           TEXT PRIMARY KEY,
     streamer     TEXT NOT NULL,
@@ -81,6 +88,9 @@ CONFIG_KEYS = {
     "laugh_threshold":      {"label": "Seuil de pic de rires (x la normale)", "secret": False, "default": "4"},
     "clip_duration":        {"label": "Durée des clips (secondes)", "secret": False, "default": "30"},
     "auto_post":            {"label": "Publication TikTok automatique (true/false)", "secret": False, "default": "false"},
+    "subtitles":            {"label": "Sous-titres automatiques incrustés (true/false)", "secret": False, "default": "true"},
+    "default_hashtags":     {"label": "Hashtags par défaut", "secret": False, "default": "#twitch #clip #fyp"},
+    "language":             {"label": "Langue des streams (transcription)", "secret": False, "default": "fr"},
 }
 
 
@@ -167,6 +177,23 @@ def delete_clip(clip_id: str) -> None:
         con.execute("DELETE FROM clips WHERE id = ?", (clip_id,))
     if row and row["path"]:
         Path(row["path"]).unlink(missing_ok=True)
+
+
+# --------------------------------------------------- journal d'activité
+
+def add_event(kind: str, message: str, streamer: str = "") -> None:
+    """Trace un événement visible dans le Journal de l'UI (et purge au-delà de 200)."""
+    with _db() as con:
+        con.execute("INSERT INTO events (ts, streamer, kind, message) VALUES (?, ?, ?, ?)",
+                    (time.time(), streamer, kind, message))
+        con.execute("DELETE FROM events WHERE id NOT IN "
+                    "(SELECT id FROM events ORDER BY ts DESC LIMIT 200)")
+
+
+def list_events(limit: int = 15) -> list[dict]:
+    with _db() as con:
+        rows = con.execute("SELECT * FROM events ORDER BY ts DESC LIMIT ?", (limit,)).fetchall()
+    return [dict(r) for r in rows]
 
 
 # ---------------------------------------------------- rediffusions (VOD)

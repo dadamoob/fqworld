@@ -21,7 +21,7 @@ import time
 
 from . import storage, twitch_api
 from .chat_monitor import ChatMonitor
-from .clipper import RollingRecorder, capture_clip, extract_audio
+from .clipper import RollingRecorder, burn_subtitles, capture_clip, extract_audio
 from .humor_ai import validate_clip
 from .tiktok_publisher import publish_to_tiktok
 from .vod_hunter import run_vod_job
@@ -58,7 +58,9 @@ class Brain:
         # battement de cœur : permet à l'UI d'afficher « Moteur actif »
         storage.set_config("brain_heartbeat", str(time.time()))
 
-        streamers = [s["username"] for s in storage.list_streamers()]
+        rows = storage.list_streamers()
+        streamers = [s["username"] for s in rows]
+        was_live_map = {s["username"]: s["is_live"] for s in rows}
         try:
             live = await asyncio.to_thread(twitch_api.get_live_streams, streamers)
         except twitch_api.TwitchConfigError as exc:
@@ -66,9 +68,17 @@ class Brain:
                 log.warning(str(exc))
             live = {}
 
+        # le réglage de sensibilité de l'UI s'applique sans redémarrage
+        threshold = float(storage.get_config("laugh_threshold") or 4)
+        for monitor in self.monitors.values():
+            monitor.laugh_threshold = threshold
+
         for username in streamers:
             is_live = username in live
+            was_live = was_live_map.get(username, 0)
             storage.set_live_status(username, is_live, live.get(username, ""))
+            if is_live and not was_live:
+                storage.add_event("live", f"{username} vient de passer en live 🔴", username)
             if is_live:
                 self._start_watching(username)
             else:
@@ -119,6 +129,8 @@ class Brain:
         if recorder is None or not recorder.running:
             return
 
+        storage.add_event("pic", f"Pic de rires détecté dans le chat de {channel} "
+                                 f"(x{chat_stats.get('ratio', '?')}) 🎉", channel)
         duration = int(float(storage.get_config("clip_duration") or 30))
         log.info("[%s] ✂️  extraction des %d dernières secondes…", channel, duration)
         video = await capture_clip(recorder, duration)
@@ -130,6 +142,11 @@ class Brain:
         audio = await asyncio.to_thread(extract_audio, video)
         verdict = await validate_clip(audio, chat_stats)
 
+        # sous-titres incrustés style TikTok (activables dans l'UI)
+        if verdict.get("funny") and verdict.get("segments") \
+                and storage.get_config("subtitles") == "true":
+            video = await asyncio.to_thread(burn_subtitles, video, verdict["segments"])
+
         if not verdict.get("funny"):
             storage.add_clip(
                 streamer=channel, path=str(video),
@@ -140,6 +157,7 @@ class Brain:
                 error=verdict.get("reason", ""),
             )
             log.info("[%s] 🟡 clip rejeté par l'IA : %s", channel, verdict.get("reason"))
+            storage.add_event("rejet", f"Clip de {channel} rejeté par l'IA 🟡", channel)
             return
 
         clip_id = storage.add_clip(
@@ -151,6 +169,8 @@ class Brain:
         )
         log.info("[%s] 🟢 clip validé par l'IA (score %.0f%%) -> bibliothèque",
                  channel, float(verdict.get("score") or 0) * 100)
+        storage.add_event("clip", f"Nouveau clip de {channel} dans la bibliothèque "
+                                  f"(score {float(verdict.get('score') or 0):.0%}) 🟢", channel)
 
         if storage.get_config("auto_post") == "true":
             ok, message = await asyncio.to_thread(
@@ -158,9 +178,11 @@ class Brain:
             if ok:
                 storage.update_clip_status(clip_id, storage.CLIP_POSTED)
                 log.info("[%s] 🚀 clip publié automatiquement sur TikTok", channel)
+                storage.add_event("tiktok", f"Clip de {channel} publié sur TikTok 🚀", channel)
             else:
                 storage.update_clip_status(clip_id, storage.CLIP_FAILED, error=message)
                 log.warning("[%s] 🔴 publication TikTok échouée : %s", channel, message)
+                storage.add_event("erreur", f"Publication TikTok échouée pour {channel} 🔴", channel)
 
 
 if __name__ == "__main__":

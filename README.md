@@ -27,10 +27,15 @@ Ensuite, l'onglet **⚙️ Configuration** de l'interface vous guide pas à pas
 
 | Onglet | Ce qu'on y fait |
 |---|---|
-| 📡 **Dashboard** | Voir les streamers suivis (🔴 En live / ⚫ Hors ligne), en ajouter un avec juste son pseudo |
+| 📡 **Dashboard** | Statistiques en direct, streamers suivis (🔴 En live / ⚫ Hors ligne), journal d'activité de l'agent |
 | 📼 **Rediffusions** | Choisir une VOD d'un streamer : l'IA l'analyse et en tire 1 à 5 clips, sans attendre un live |
 | 🎞️ **Bibliothèque de Clips** | Galerie des clips générés, statut (Prêt / Posté sur TikTok / Échec / Rejeté par l'IA), publication manuelle ou téléchargement |
-| ⚙️ **Configuration** | Guides pas à pas avec liens directs pour chaque clé API (Twitch, OpenAI, TikTok) + réglages de sensibilité |
+| ⚙️ **Configuration** | Guides pas à pas avec liens directs pour chaque clé API (Twitch, OpenAI, TikTok) + sensibilité, sous-titres, hashtags, langue |
+
+✨ **Les clips sont automatiquement sous-titrés** (style TikTok : gros texte
+blanc contour noir, synchronisé par Whisper) — désactivable dans la
+Configuration. L'indicateur « 🧠 Moteur actif » et le journal d'activité
+montrent en permanence ce que fait l'agent.
 
 ## 🧠 Le moteur (sous le capot)
 

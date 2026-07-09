@@ -41,13 +41,25 @@ def _client() -> OpenAI | None:
     return OpenAI(api_key=api_key)
 
 
-def _transcribe(audio_path: Path) -> str:
+def _transcribe(audio_path: Path) -> tuple[str, list[dict]]:
+    """Retourne (texte, segments horodatés) pour les sous-titres incrustés."""
     client = _client()
     if client is None:
-        return ""
+        return "", []
+    language = storage.get_config("language") or "fr"
     with open(audio_path, "rb") as f:
-        result = client.audio.transcriptions.create(model="whisper-1", file=f, language="fr")
-    return result.text.strip()
+        result = client.audio.transcriptions.create(
+            model="whisper-1", file=f, language=language,
+            response_format="verbose_json",
+        )
+    segments = []
+    for seg in (getattr(result, "segments", None) or []):
+        get = seg.get if isinstance(seg, dict) else lambda k, s=seg: getattr(s, k, None)
+        text = (get("text") or "").strip()
+        if text:
+            segments.append({"start": float(get("start") or 0),
+                             "end": float(get("end") or 0), "text": text})
+    return (result.text or "").strip(), segments
 
 
 def _judge(transcript: str, chat_stats: dict) -> dict:
@@ -78,10 +90,10 @@ def _judge(transcript: str, chat_stats: dict) -> dict:
 async def validate_clip(audio_path: Path | None, chat_stats: dict) -> dict:
     """Retourne {"funny", "score", "title", "reason", "transcript"} sans bloquer l'event loop."""
     def _work() -> dict:
-        transcript = ""
+        transcript, segments = "", []
         try:
             if audio_path is not None:
-                transcript = _transcribe(audio_path)
+                transcript, segments = _transcribe(audio_path)
         except Exception as exc:
             log.warning("Transcription Whisper impossible : %s", exc)
         try:
@@ -89,9 +101,15 @@ async def validate_clip(audio_path: Path | None, chat_stats: dict) -> dict:
         except Exception as exc:
             log.warning("Validation LLM impossible : %s — clip conservé par défaut", exc)
             verdict = {"funny": True, "score": 0.5,
-                       "title": "Moment fort du live 😂 #twitch #clip #fyp",
+                       "title": "Moment fort du live 😂",
                        "reason": f"LLM indisponible ({exc})."}
+        # hashtags par défaut ajoutés au titre s'il n'en contient pas
+        hashtags = (storage.get_config("default_hashtags") or "").strip()
+        title = (verdict.get("title") or "").strip()
+        if title and hashtags and "#" not in title:
+            verdict["title"] = f"{title} {hashtags}"
         verdict["transcript"] = transcript
+        verdict["segments"] = segments
         return verdict
 
     result = await asyncio.to_thread(_work)

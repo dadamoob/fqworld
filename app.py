@@ -17,14 +17,43 @@ from agent.tiktok_publisher import publish_to_tiktok
 
 st.set_page_config(page_title="FQWorld", page_icon="🎬", layout="wide")
 
-# Habillage « logiciel » : on masque les éléments techniques de Streamlit
+# Habillage « logiciel » : éléments techniques masqués + design FQWorld
 st.markdown("""
 <style>
   #MainMenu, footer,
   [data-testid="stAppDeployButton"],
   [data-testid="stToolbar"],
   [data-testid="stDecoration"] { visibility: hidden; height: 0; }
-  .block-container { padding-top: 2.2rem; }
+  .block-container { padding-top: 2.2rem; max-width: 1250px; }
+
+  /* Titre en dégradé Twitch -> TikTok */
+  h1 {
+    background: linear-gradient(90deg, #9146FF 0%, #FF2D74 70%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+  }
+
+  /* Cartes (statistiques et conteneurs) */
+  [data-testid="stMetric"] {
+    background: linear-gradient(160deg, #1f1f23 0%, #17171a 100%);
+    border: 1px solid #2e2e35; border-radius: 16px; padding: 14px 18px;
+  }
+  [data-testid="stMetricValue"] { font-weight: 700; }
+  [data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
+
+  /* Boutons primaires en dégradé */
+  .stButton > button[kind="primary"], .stFormSubmitButton > button {
+    background: linear-gradient(90deg, #9146FF, #FF2D74);
+    border: none; color: white; font-weight: 600;
+  }
+  .stButton > button[kind="primary"]:hover, .stFormSubmitButton > button:hover {
+    filter: brightness(1.15);
+  }
+
+  /* Vidéos et onglets adoucis */
+  video { border-radius: 14px; }
+  button[data-baseweb="tab"] { font-size: 1.02rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -74,6 +103,21 @@ tab_dashboard, tab_vod, tab_library, tab_config = st.tabs(
 
 # ════════════════════════════════════════════════ Onglet 1 : Dashboard
 with tab_dashboard:
+
+    @st.fragment(run_every="15s")
+    def stats_row() -> None:
+        streamers_all = storage.list_streamers()
+        clips_all = storage.list_clips()
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("👥 Streamers suivis", len(streamers_all))
+        col2.metric("🔴 En live", sum(1 for s in streamers_all if s["is_live"]))
+        col3.metric("🎬 Clips prêts",
+                    sum(1 for c in clips_all if c["status"] == storage.CLIP_READY))
+        col4.metric("🚀 Publiés TikTok",
+                    sum(1 for c in clips_all if c["status"] == storage.CLIP_POSTED))
+
+    stats_row()
+    st.divider()
     st.subheader("Streamers suivis en direct")
     st.caption("Ajoutez un pseudo : dès que le streamer passe en live, l'agent écoute son chat "
                "et clippe automatiquement les moments où tout le monde rit.")
@@ -109,6 +153,22 @@ with tab_dashboard:
         st.caption("✨ Statuts mis à jour automatiquement (moteur : ~60 s, affichage : 10 s).")
 
     streamer_list()
+
+    st.divider()
+    st.subheader("📰 Journal d'activité")
+
+    @st.fragment(run_every="10s")
+    def activity_feed() -> None:
+        events = storage.list_events(12)
+        if not events:
+            st.caption("L'activité de l'agent s'affichera ici : passages en live, "
+                       "pics de rires, clips créés, publications TikTok…")
+            return
+        for e in events:
+            when = time.strftime("%d/%m %H:%M", time.localtime(e["ts"]))
+            st.markdown(f"`{when}` — {e['message']}")
+
+    activity_feed()
 
 # ═══════════════════════════════════════════ Onglet 2 : Rediffusions
 with tab_vod:
@@ -367,6 +427,22 @@ with tab_config:
             "Publier automatiquement sur TikTok (sinon les clips attendent en « Prêt »)",
             value=config.get("auto_post", "false") == "true",
         )
+        subtitles = st.toggle(
+            "Sous-titres automatiques incrustés sur les clips (style TikTok, via Whisper)",
+            value=config.get("subtitles", "true") == "true",
+        )
+        default_hashtags = st.text_input(
+            "Hashtags ajoutés aux titres des clips",
+            value=config.get("default_hashtags", "#twitch #clip #fyp"),
+        )
+        languages = {"fr": "Français", "en": "Anglais", "es": "Espagnol", "de": "Allemand"}
+        current_lang = config.get("language", "fr")
+        language = st.selectbox(
+            "Langue parlée dans les streams (pour la transcription)",
+            options=list(languages),
+            index=list(languages).index(current_lang) if current_lang in languages else 0,
+            format_func=languages.get,
+        )
 
     if st.button("💾 Enregistrer la configuration", type="primary", use_container_width=True):
         storage.set_config("twitch_client_id", twitch_client_id.strip())
@@ -376,6 +452,13 @@ with tab_config:
         storage.set_config("laugh_threshold", str(laugh_threshold))
         storage.set_config("clip_duration", str(clip_duration))
         storage.set_config("auto_post", "true" if auto_post else "false")
+        storage.set_config("subtitles", "true" if subtitles else "false")
+        storage.set_config("default_hashtags", default_hashtags.strip())
+        storage.set_config("language", language)
         st.toast("✅ Configuration enregistrée ! Le moteur la prend en compte "
                  "au prochain cycle (~1 minute).")
         st.rerun()
+
+st.divider()
+st.caption("FQWorld v2.0 · agent open-source Twitch → TikTok · "
+           "vos clés restent sur votre machine")
