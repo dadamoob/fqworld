@@ -3,6 +3,18 @@
   DÉMARRAGE EN 2 MINUTES
 ============================================================
 
+⭐ LE PLUS SIMPLE (Windows) : LE LOGICIEL TOUT-EN-UN
+   Téléchargez FQWorld.exe ici et double-cliquez dessus :
+   https://github.com/dadamoob/fqworld/releases/latest
+   Pas de Docker, pas d'installation : l'application s'ouvre
+   dans sa propre fenêtre, icône près de l'horloge.
+   (Si SmartScreen s'affiche : « Informations complémentaires »
+   puis « Exécuter quand même ».)
+
+   Le reste de ce fichier concerne l'alternative Docker
+   (Mac, serveurs, utilisateurs avancés).
+
+------------------------------------------------------------
 ÉTAPE 1 — Installez Docker Desktop (une seule fois, gratuit)
    https://www.docker.com/products/docker-desktop/
    Installez-le, redémarrez l'ordinateur si demandé,

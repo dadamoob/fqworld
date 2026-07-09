@@ -1,11 +1,14 @@
 """
 Capture vidéo et montage automatique au format TikTok (9:16).
 
-Stratégie : tant qu'un streamer est en live, `streamlink` enregistre son flux
-en continu dans des segments de 10 s (buffer circulaire sur disque, on ne
+Stratégie : tant qu'un streamer est en live, son flux est enregistré en
+continu dans des segments de 10 s (buffer circulaire sur disque, on ne
 garde que les ~3 dernières minutes). Quand le chat explose de rire, on
 recolle les N derniers segments et on recadre en 1080x1920 avec FFmpeg.
 => le clip contient les secondes qui PRÉCÈDENT le pic (le moment drôle).
+
+Le flux est lu via la bibliothèque streamlink (agent/media.py) : aucune
+commande externe autre que FFmpeg, condition pour l'app .exe autonome.
 """
 
 from __future__ import annotations
@@ -14,11 +17,12 @@ import asyncio
 import logging
 import shutil
 import subprocess
+import threading
 import time
 import uuid
 from pathlib import Path
 
-from . import storage
+from . import media, storage
 
 log = logging.getLogger("clipper")
 
@@ -33,36 +37,43 @@ class RollingRecorder:
         self.channel = channel
         self.dir = storage.DATA_DIR / "buffers" / channel
         self._proc: subprocess.Popen | None = None
+        self._stop_pump = threading.Event()
 
     def start(self) -> None:
-        if self._proc and self._proc.poll() is None:
+        if self.running:
             return
+        # repart d'un buffer vierge : numérotation séquentielle sans collision
+        shutil.rmtree(self.dir, ignore_errors=True)
         self.dir.mkdir(parents=True, exist_ok=True)
-        # streamlink tire le flux Twitch -> ffmpeg le découpe en segments .ts
-        streamlink = subprocess.Popen(
-            ["streamlink", "--twitch-disable-ads", "--stdout",
-             f"https://twitch.tv/{self.channel}", "720p,best"],
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-        )
+        try:
+            stream_fd = media.open_stream(f"https://twitch.tv/{self.channel}")
+        except Exception as exc:
+            log.warning("[%s] flux injoignable : %s", self.channel, exc)
+            return
+        if stream_fd is None:
+            log.warning("[%s] aucun flux disponible (hors ligne ?)", self.channel)
+            return
+        # ffmpeg découpe le flux en segments .ts (buffer circulaire)
         self._proc = subprocess.Popen(
-            ["ffmpeg", "-hide_banner", "-loglevel", "error",
+            [media.ffmpeg_bin(), "-hide_banner", "-loglevel", "error",
              "-i", "pipe:0",
              "-c", "copy",
              "-f", "segment",
              "-segment_time", str(SEGMENT_SECONDS),
              "-reset_timestamps", "1",
-             "-strftime", "1",
-             str(self.dir / "seg_%Y%m%d_%H%M%S.ts")],
-            stdin=streamlink.stdout, stderr=subprocess.DEVNULL,
+             str(self.dir / "seg_%06d.ts")],
+            stdin=subprocess.PIPE, stderr=subprocess.DEVNULL,
         )
-        streamlink.stdout.close()
-        self._streamlink = streamlink
+        self._stop_pump = threading.Event()
+        threading.Thread(target=media.pump,
+                         args=(stream_fd, self._proc.stdin, self._stop_pump),
+                         daemon=True).start()
         log.info("[%s] enregistrement tampon démarré", self.channel)
 
     def stop(self) -> None:
-        for proc in (getattr(self, "_streamlink", None), self._proc):
-            if proc and proc.poll() is None:
-                proc.terminate()
+        self._stop_pump.set()
+        if self._proc and self._proc.poll() is None:
+            self._proc.terminate()
         self._proc = None
         shutil.rmtree(self.dir, ignore_errors=True)
         log.info("[%s] enregistrement tampon arrêté", self.channel)
@@ -90,7 +101,7 @@ class RollingRecorder:
         concat_list.write_text("".join(f"file '{p.name}'\n" for p in chosen))
         raw = self.dir / f"raw_{uuid.uuid4().hex[:8]}.ts"
         result = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+            [media.ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-y",
              "-f", "concat", "-safe", "0", "-i", str(concat_list),
              "-c", "copy", str(raw)],
             capture_output=True,
@@ -105,7 +116,7 @@ def crop_to_tiktok(source: Path, channel: str) -> Path | None:
     # crop central 9:16 puis mise à l'échelle 1080x1920
     vf = "crop=ih*9/16:ih:(iw-ih*9/16)/2:0,scale=1080:1920,setsar=1"
     result = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+        [media.ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-y",
          "-i", str(source),
          "-vf", vf,
          "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
@@ -161,7 +172,7 @@ def burn_subtitles(video: Path, segments: list[dict]) -> Path:
     ass.write_text(_ASS_HEADER + "\n".join(lines) + "\n", encoding="utf-8")
     out = video.with_name(video.stem + "_sub.mp4")
     result = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+        [media.ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-y",
          "-i", str(video), "-vf", f"ass={ass}",
          "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
          "-c:a", "copy", "-movflags", "+faststart", str(out)],
@@ -181,7 +192,7 @@ def extract_audio(video: Path) -> Path | None:
     """Extrait l'audio en mp3 léger pour la transcription Whisper."""
     audio = video.with_suffix(".mp3")
     result = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+        [media.ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-y",
          "-i", str(video), "-vn", "-ac", "1", "-ar", "16000", "-b:a", "48k", str(audio)],
         capture_output=True,
     )

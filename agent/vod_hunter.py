@@ -16,10 +16,11 @@ import asyncio
 import logging
 import re
 import subprocess
+import threading
 import uuid
 from pathlib import Path
 
-from . import storage
+from . import media, storage
 from .clipper import burn_subtitles, crop_to_tiktok, extract_audio
 from .humor_ai import validate_clip
 
@@ -40,25 +41,25 @@ def _hms(seconds: float) -> str:
 def scan_audio_peaks(vod_url: str, count: int, vod_duration: float,
                      progress_cb=None) -> list[tuple[float, float]]:
     """Streame l'audio de la VOD et retourne les `count` plus gros pics [(t, dB)]."""
-    streamlink = subprocess.Popen(
-        ["streamlink", "--stdout", vod_url, "audio_only,worst"],
-        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-    )
+    stream_fd = media.open_stream(vod_url, qualities=("audio_only", "worst"))
+    if stream_fd is None:
+        return []
     # astats avec reset toutes les ~1 s => volume RMS seconde par seconde
     ffmpeg = subprocess.Popen(
-        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", "pipe:0",
+        [media.ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-i", "pipe:0",
          "-af", ("asetnsamples=48000,astats=metadata=1:reset=1,"
                  "ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-"),
          "-f", "null", "-"],
-        stdin=streamlink.stdout, stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL, text=True,
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
     )
-    streamlink.stdout.close()
+    threading.Thread(target=media.pump, args=(stream_fd, ffmpeg.stdin),
+                     daemon=True).start()
 
     levels: list[tuple[float, float]] = []
     current_t: float | None = None
-    for line in ffmpeg.stdout:
-        line = line.strip()
+    for raw_line in ffmpeg.stdout:
+        line = raw_line.decode(errors="ignore").strip()
         if line.startswith("frame:"):
             match = re.search(r"pts_time:([\d.]+)", line)
             current_t = float(match.group(1)) if match else None
@@ -69,7 +70,6 @@ def scan_audio_peaks(vod_url: str, count: int, vod_duration: float,
             if progress_cb and len(levels) % 120 == 0 and vod_duration > 0:
                 progress_cb(min(1.0, current_t / vod_duration))
     ffmpeg.wait()
-    streamlink.wait()
 
     if not levels:
         return []
@@ -99,21 +99,19 @@ def extract_vod_segment(vod_url: str, start: float, duration: int) -> Path | Non
     out_dir.mkdir(parents=True, exist_ok=True)
     raw = out_dir / f"vod_{uuid.uuid4().hex[:8]}.ts"
 
-    streamlink = subprocess.Popen(
-        ["streamlink", "--stdout",
-         "--hls-start-offset", _hms(start),
-         "--hls-duration", _hms(duration + 8),
-         vod_url, "720p,best"],
-        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-    )
-    result = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+    stream_fd = media.open_stream(vod_url, qualities=("720p", "best"),
+                                  start_offset=start, duration=duration + 8)
+    if stream_fd is None:
+        return None
+    ffmpeg = subprocess.Popen(
+        [media.ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-y",
          "-i", "pipe:0", "-t", str(duration), "-c", "copy", str(raw)],
-        stdin=streamlink.stdout, capture_output=True,
+        stdin=subprocess.PIPE, stderr=subprocess.DEVNULL,
     )
-    streamlink.stdout.close()
-    streamlink.wait()
-    if result.returncode != 0 or not raw.exists():
+    threading.Thread(target=media.pump, args=(stream_fd, ffmpeg.stdin),
+                     daemon=True).start()
+    ffmpeg.wait(timeout=duration * 6 + 120)
+    if ffmpeg.returncode != 0 or not raw.exists():
         raw.unlink(missing_ok=True)
         return None
     return raw
