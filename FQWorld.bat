@@ -24,7 +24,9 @@ exit /b 1
 
 :ready
 echo  Demarrage de FQWorld...
-docker compose up -d
+REM --build : applique automatiquement une mise a jour telechargee
+REM (instantane si rien n'a change, grace au cache Docker)
+docker compose up -d --build
 echo  Attente de l'interface (quelques secondes)...
 for /l %%i in (1,1,60) do (
     curl -s -o nul http://localhost:8501 2>nul && goto open

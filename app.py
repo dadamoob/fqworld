@@ -10,10 +10,27 @@ communique via la base SQLite partagée (agent/storage.py).
 import time
 from pathlib import Path
 
+import httpx
 import streamlit as st
 
 from agent import storage, twitch_api
 from agent.tiktok_publisher import publish_to_tiktok
+
+_version_file = Path(__file__).parent / "VERSION"
+VERSION = _version_file.read_text().strip() if _version_file.exists() else "dev"
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def latest_version() -> str | None:
+    """Vérifie (au plus 1x/heure) si une nouvelle version est publiée sur GitHub."""
+    try:
+        r = httpx.get("https://raw.githubusercontent.com/dadamoob/fqworld/main/VERSION",
+                      timeout=4)
+        if r.status_code == 200:
+            return r.text.strip()
+    except Exception:
+        pass
+    return None
 
 st.set_page_config(page_title="FQWorld", page_icon="🎬", layout="wide")
 
@@ -82,6 +99,13 @@ def engine_status() -> None:
 
 
 engine_status()
+
+_latest = latest_version()
+if _latest and _latest != VERSION:
+    st.info(f"🔄 **Nouvelle version {_latest} disponible** (vous êtes en v{VERSION}). "
+            "Pour mettre à jour en un clic : double-cliquez sur `update.bat` "
+            "(Windows) ou lancez `bash update.sh` (Mac/Linux) — vos clips et "
+            "votre configuration sont conservés.")
 
 config = storage.get_all_config()
 twitch_ok = bool(config.get("twitch_client_id")) and bool(config.get("twitch_client_secret"))
@@ -464,5 +488,5 @@ with tab_config:
         st.rerun()
 
 st.divider()
-st.caption("FQWorld v2.0 · agent open-source Twitch → TikTok · "
+st.caption(f"FQWorld v{VERSION} · agent open-source Twitch → TikTok · "
            "vos clés restent sur votre machine")

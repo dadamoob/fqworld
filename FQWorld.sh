@@ -23,7 +23,9 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 echo " Démarrage de FQWorld…"
-docker compose up -d
+# --build : applique automatiquement une mise à jour téléchargée
+# (instantané si rien n'a changé, grâce au cache Docker)
+docker compose up -d --build
 echo " Attente de l'interface (quelques secondes)…"
 ready=0
 for _ in $(seq 1 60); do

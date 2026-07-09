@@ -1,0 +1,7 @@
+# Ne jamais embarquer l'état runtime ni l'historique git dans l'image
+data/
+.git/
+.venv/
+__pycache__/
+*.zip
+*.pyc
