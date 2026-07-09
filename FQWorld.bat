@@ -24,6 +24,8 @@ exit /b 1
 
 :ready
 echo  Demarrage de FQWorld...
+REM Cree le dossier data AVANT le montage Docker (evite un plantage sous Windows)
+if not exist "%~dp0data\clips" mkdir "%~dp0data\clips"
 REM --build : applique automatiquement une mise a jour telechargee
 REM (instantane si rien n'a change, grace au cache Docker)
 docker compose up -d --build

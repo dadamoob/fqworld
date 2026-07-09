@@ -23,6 +23,7 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 echo " Démarrage de FQWorld…"
+mkdir -p data/clips   # dossier data créé avant le montage Docker
 # --build : applique automatiquement une mise à jour téléchargée
 # (instantané si rien n'a changé, grâce au cache Docker)
 docker compose up -d --build

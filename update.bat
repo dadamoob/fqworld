@@ -28,6 +28,7 @@ rmdir /S /Q fqworld-main
 del fqworld_new.zip
 
 echo  Reconstruction et redemarrage de l'agent...
+if not exist "%~dp0data\clips" mkdir "%~dp0data\clips"
 docker info >nul 2>nul
 if errorlevel 1 (
     echo  [i] Docker n'est pas demarre : la nouvelle version sera
