@@ -120,6 +120,62 @@ def crop_to_tiktok(source: Path, channel: str) -> Path | None:
     return out
 
 
+_ASS_HEADER = """[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: TikTok,Arial,68,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,5,2,2,70,70,430,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+
+
+def _ass_time(seconds: float) -> str:
+    seconds = max(0.0, seconds)
+    return (f"{int(seconds // 3600)}:{int(seconds % 3600 // 60):02d}:"
+            f"{seconds % 60:05.2f}")
+
+
+def burn_subtitles(video: Path, segments: list[dict]) -> Path:
+    """Incruste des sous-titres style TikTok (gros, blancs, contour noir).
+
+    `segments` : [{"start": s, "end": s, "text": "..."}] issus de Whisper.
+    Retourne le nouveau fichier (ou l'original si rien à incruster / échec).
+    """
+    lines = []
+    for seg in segments:
+        text = str(seg.get("text", "")).strip().replace("{", "").replace("}", "")
+        if not text:
+            continue
+        lines.append(f"Dialogue: 0,{_ass_time(float(seg['start']))},"
+                     f"{_ass_time(float(seg['end']))},TikTok,,0,0,0,,{text}")
+    if not lines:
+        return video
+
+    ass = video.with_suffix(".ass")
+    ass.write_text(_ASS_HEADER + "\n".join(lines) + "\n", encoding="utf-8")
+    out = video.with_name(video.stem + "_sub.mp4")
+    result = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+         "-i", str(video), "-vf", f"ass={ass}",
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+         "-c:a", "copy", "-movflags", "+faststart", str(out)],
+        capture_output=True,
+    )
+    ass.unlink(missing_ok=True)
+    if result.returncode != 0 or not out.exists():
+        log.warning("incrustation des sous-titres échouée : %s",
+                    result.stderr.decode()[-300:])
+        out.unlink(missing_ok=True)
+        return video
+    video.unlink(missing_ok=True)
+    return out
+
+
 def extract_audio(video: Path) -> Path | None:
     """Extrait l'audio en mp3 léger pour la transcription Whisper."""
     audio = video.with_suffix(".mp3")
