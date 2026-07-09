@@ -19,9 +19,15 @@ chmod +x FQWorld.sh install.sh stop.sh update.sh 2>/dev/null || true
 
 echo " Reconstruction et redémarrage de l'agent…"
 if docker info >/dev/null 2>&1; then
-    docker compose up --build -d
-    echo ""
-    echo " Mise à jour terminée ! Rouvrez FQWorld via le raccourci du Bureau."
+    if docker compose up --build -d; then
+        echo ""
+        echo " Mise à jour terminée ! Rouvrez FQWorld via le raccourci du Bureau."
+    else
+        echo ""
+        echo " [!] La reconstruction a échoué (souvent un souci de connexion)."
+        echo "     Les fichiers sont à jour : relancez FQWorld via le raccourci"
+        echo "     du Bureau, il réessaiera automatiquement."
+    fi
 else
     echo " [i] Docker n'est pas démarré : la nouvelle version sera appliquée"
     echo "     au prochain lancement via le raccourci FQWorld."

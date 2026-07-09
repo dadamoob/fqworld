@@ -36,6 +36,14 @@ if errorlevel 1 (
     exit /b 0
 )
 docker compose up --build -d
+if errorlevel 1 (
+    echo.
+    echo  [!] La reconstruction a echoue (souvent un souci de connexion).
+    echo      Les fichiers sont a jour : relancez FQWorld via le raccourci
+    echo      du Bureau, il reessaiera automatiquement.
+    pause
+    exit /b 1
+)
 echo.
 echo  Mise a jour terminee ! Rouvrez FQWorld via le raccourci du Bureau.
 pause
