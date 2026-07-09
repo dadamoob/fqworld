@@ -4,3 +4,6 @@ data/
 __pycache__/
 *.pyc
 .env
+.test-ca.crt
+Dockerfile.test
+docker-compose.test.yml

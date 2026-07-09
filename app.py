@@ -15,11 +15,44 @@ import streamlit as st
 from agent import storage, twitch_api
 from agent.tiktok_publisher import publish_to_tiktok
 
-st.set_page_config(page_title="FQWorld — Twitch → TikTok", page_icon="🎬", layout="wide")
+st.set_page_config(page_title="FQWorld", page_icon="🎬", layout="wide")
+
+# Habillage « logiciel » : on masque les éléments techniques de Streamlit
+st.markdown("""
+<style>
+  #MainMenu, footer,
+  [data-testid="stAppDeployButton"],
+  [data-testid="stToolbar"],
+  [data-testid="stDecoration"] { visibility: hidden; height: 0; }
+  .block-container { padding-top: 2.2rem; }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("🎬 FQWorld — Agent Twitch → TikTok")
 st.caption("Détection automatique des moments drôles (en live OU dans les rediffusions), "
            "montage 9:16 et publication TikTok.")
+
+
+@st.fragment(run_every="15s")
+def engine_status() -> None:
+    """Indicateur temps réel : le moteur (cerveau) tourne-t-il vraiment ?"""
+    heartbeat = storage.get_config("brain_heartbeat")
+    alive = False
+    if heartbeat:
+        try:
+            alive = time.time() - float(heartbeat) < 150  # 2 cycles + marge
+        except ValueError:
+            alive = False
+    if alive:
+        st.caption("🧠 Moteur : 🟢 **actif** — surveillance en cours, "
+                   "statuts mis à jour automatiquement")
+    else:
+        st.error("🔴 **Le moteur est arrêté** : l'interface fonctionne mais rien n'est "
+                 "surveillé. Lancez FQWorld via le raccourci Bureau "
+                 "(ou `docker compose up -d`), ce bandeau passera au vert tout seul.")
+
+
+engine_status()
 
 config = storage.get_all_config()
 twitch_ok = bool(config.get("twitch_client_id")) and bool(config.get("twitch_client_secret"))
@@ -56,10 +89,12 @@ with tab_dashboard:
             storage.add_streamer(pseudo)
             st.toast(f"✅ {pseudo.strip()} ajouté ! Le cerveau le surveillera d'ici ~1 minute.")
 
-    streamers = storage.list_streamers()
-    if not streamers:
-        st.info("Aucun streamer suivi pour l'instant. Ajoutez un pseudo ci-dessus 👆")
-    else:
+    @st.fragment(run_every="10s")
+    def streamer_list() -> None:
+        streamers = storage.list_streamers()
+        if not streamers:
+            st.info("Aucun streamer suivi pour l'instant. Ajoutez un pseudo ci-dessus 👆")
+            return
         for s in streamers:
             col_name, col_status, col_title, col_del = st.columns([2, 1, 3, 1])
             col_name.markdown(f"**{s['username']}**")
@@ -71,11 +106,9 @@ with tab_dashboard:
             if col_del.button("🗑️ Retirer", key=f"del_{s['username']}"):
                 storage.remove_streamer(s["username"])
                 st.rerun()
+        st.caption("✨ Statuts mis à jour automatiquement (moteur : ~60 s, affichage : 10 s).")
 
-    st.divider()
-    if st.button("🔄 Rafraîchir les statuts"):
-        st.rerun()
-    st.caption("Les statuts En live / Hors ligne sont mis à jour par le moteur toutes les ~60 s.")
+    streamer_list()
 
 # ═══════════════════════════════════════════ Onglet 2 : Rediffusions
 with tab_vod:
@@ -104,8 +137,8 @@ with tab_vod:
                 if not st.session_state["vods"]:
                     st.warning("Aucune rediffusion trouvée : le streamer doit activer "
                                "« Enregistrer les diffusions » dans ses paramètres Twitch.")
-            except twitch_api.TwitchKeysMissing as exc:
-                st.error(str(exc))
+            except twitch_api.TwitchConfigError as exc:
+                st.error(f"⚙️ {exc}")
             except Exception as exc:
                 st.error(f"Impossible de récupérer les rediffusions : {exc}")
 
@@ -135,8 +168,11 @@ with tab_vod:
                 st.session_state.pop("vods", None)
                 st.rerun()
 
-    jobs = storage.list_vod_jobs()
-    if jobs:
+    @st.fragment(run_every="10s")
+    def vod_jobs_list() -> None:
+        jobs = storage.list_vod_jobs()
+        if not jobs:
+            return
         st.divider()
         st.markdown("##### Analyses en cours et terminées")
         icons = {storage.JOB_PENDING: "⏳", storage.JOB_RUNNING: "🔍",
@@ -155,9 +191,10 @@ with tab_vod:
                 if col_del.button("🗑️", key=f"job_{job['id']}", help="Retirer de la liste"):
                     storage.delete_vod_job(job["id"])
                     st.rerun()
-        if st.button("🔄 Actualiser les analyses"):
-            st.rerun()
-        st.caption("Les clips validés apparaissent dans l'onglet 🎞️ Bibliothèque de Clips.")
+        st.caption("✨ Progression mise à jour automatiquement. Les clips validés "
+                   "apparaissent dans l'onglet 🎞️ Bibliothèque de Clips.")
+
+    vod_jobs_list()
 
 # ════════════════════════════════════ Onglet 3 : Bibliothèque de Clips
 with tab_library:
@@ -263,6 +300,12 @@ with tab_config:
                                          value=config.get("twitch_client_id", ""))
         twitch_client_secret = st.text_input("Twitch Client Secret", type="password",
                                              value=config.get("twitch_client_secret", ""))
+        if twitch_client_id and twitch_client_id == twitch_client_secret:
+            st.error("⚠️ Le Client ID et le Client Secret sont **identiques** : "
+                     "vous avez collé deux fois le Client ID ! Le Client Secret est "
+                     "une clé **différente** : sur la page de votre application "
+                     "Twitch, cliquez **New Secret**, copiez la clé générée et "
+                     "collez-la dans le champ Client Secret.")
 
     # ------------------------------------------------------------ OPENAI
     with st.container(border=True):

@@ -41,11 +41,41 @@ if errorlevel 1 (
 )
 
 echo.
-echo  [2/2] C'est pret ! Ouverture de l'interface...
+echo  [2/3] Creation des raccourcis sur le Bureau...
+set "HERE=%~dp0"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws=New-Object -ComObject WScript.Shell; $d=[Environment]::GetFolderPath('Desktop'); $s=$ws.CreateShortcut((Join-Path $d 'FQWorld.lnk')); $s.TargetPath='%HERE%FQWorld.bat'; $s.WorkingDirectory='%HERE%'; $s.Description='Lancer FQWorld (Twitch vers TikTok)'; $s.Save(); $s2=$ws.CreateShortcut((Join-Path $d 'Arreter FQWorld.lnk')); $s2.TargetPath='%HERE%stop.bat'; $s2.WorkingDirectory='%HERE%'; $s2.Description='Arreter FQWorld'; $s2.Save()" >nul 2>nul
+if errorlevel 1 (
+    echo      [i] Impossible de creer les raccourcis - vous pourrez
+    echo          toujours double-cliquer sur FQWorld.bat dans ce dossier.
+) else (
+    echo      Raccourcis "FQWorld" et "Arreter FQWorld" crees sur le Bureau !
+)
+
 echo.
-echo   Interface : http://localhost:8501
-echo   Arreter   : double-cliquez sur stop.bat
-echo.
-timeout /t 3 >nul
+echo  [3/3] Attente de l'interface (quelques secondes)...
+for /l %%i in (1,1,60) do (
+    curl -s -o nul http://localhost:8501 2>nul && goto ui_ready
+    timeout /t 2 >nul
+)
+echo      [i] L'interface met du temps a demarrer : ouvrez (ou actualisez)
+echo          http://localhost:8501 dans votre navigateur dans un instant.
+goto recap
+
+:ui_ready
+echo      C'est pret ! Ouverture dans votre navigateur...
 start http://localhost:8501
+
+:recap
+echo.
+echo  ============================================
+echo   FQWorld tourne en arriere-plan (c'est normal :
+echo   c'est un agent de surveillance). La partie
+echo   visible est la page web dans votre navigateur :
+echo.
+echo   Interface    : http://localhost:8501
+echo   Au quotidien : double-cliquez sur le raccourci
+echo                  "FQWorld" de votre Bureau
+echo   Arreter      : raccourci "Arreter FQWorld"
+echo  ============================================
+echo.
 pause
