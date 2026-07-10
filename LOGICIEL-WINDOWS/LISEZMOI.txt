@@ -1,0 +1,9 @@
+FQWorld v3.0 — le logiciel Windows autonome
+===========================================
+1. Double-cliquez sur « 1-ASSEMBLER (double-cliquez).bat »
+   -> il fabrique FQWorld.exe (le fichier est livré en 2 morceaux
+      car GitHub limite la taille des fichiers)
+2. Double-cliquez sur FQWorld.exe
+   -> l'application s'ouvre dans sa propre fenetre,
+      icone FQWorld pres de l'horloge (Ouvrir / Quitter)
+Vos clips et votre configuration : dossier « data » cree a cote.
